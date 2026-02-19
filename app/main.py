@@ -6,7 +6,8 @@ import time
 from typing import Optional
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 from pydantic import BaseModel
@@ -17,16 +18,32 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="PaddleOCR Service", version="1.0.0")
 
+# Internal service only — no public CORS needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[],  # closed — internal service, not called from browser
+    allow_methods=["POST", "GET"],
+    allow_headers=["X-API-Key", "Content-Type"],
 )
 
+# API Key auth — loaded from env var PADDLE_OCR_API_KEY
+API_KEY = os.environ.get("PADDLE_OCR_API_KEY", "")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+def verify_api_key(key: Optional[str] = Security(api_key_header)) -> str:
+    if not API_KEY:
+        # If no key configured, allow all (dev mode)
+        logger.warning("PADDLE_OCR_API_KEY not set — running without auth (dev mode)")
+        return ""
+    if key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    return key
+
+
 # Initialize PaddleOCR once at startup (downloads models if needed)
-# use_angle_cls=True handles rotated text, lang='fr' for French docs
 ocr_engine = None
+
 
 @app.on_event("startup")
 async def startup():
@@ -65,7 +82,7 @@ def health():
 
 
 @app.post("/process-base64", response_model=OcrResponse)
-async def process_base64(req: OcrRequest):
+async def process_base64(req: OcrRequest, _key: str = Security(verify_api_key)):
     if ocr_engine is None:
         raise HTTPException(status_code=503, detail="OCR engine not ready")
 
