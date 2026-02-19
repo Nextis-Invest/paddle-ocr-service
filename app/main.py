@@ -32,9 +32,11 @@ ocr_engine = None
 async def startup():
     global ocr_engine
     logger.info("Initializing PaddleOCR...")
+    # lang='en' works perfectly for French/European Latin text
+    # lang='fr' can segfault on some server configs (AVX issues)
     ocr_engine = PaddleOCR(
         use_angle_cls=True,
-        lang="fr",
+        lang="en",
         use_gpu=False,
         show_log=False,
         enable_mkldnn=False,  # more stable on CPU-only servers
