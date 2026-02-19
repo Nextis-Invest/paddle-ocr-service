@@ -41,14 +41,25 @@ def verify_api_key(key: Optional[str] = Security(api_key_header)) -> str:
     return key
 
 
-# Initialize PaddleOCR once at startup (downloads models if needed)
+# Model paths — baked into the Docker image at build time
+# Dockerfile downloads to /app/.paddleocr/; we pass explicit paths so
+# PaddleOCR doesn't try to re-download from the internet at runtime.
+_PADDLE_HOME = "/app/.paddleocr/whl"
+_DET_MODEL_DIR = f"{_PADDLE_HOME}/det/en/en_PP-OCRv3_det_infer"
+_REC_MODEL_DIR = f"{_PADDLE_HOME}/rec/en/en_PP-OCRv4_rec_infer"
+_CLS_MODEL_DIR = f"{_PADDLE_HOME}/cls/ch_ppocr_mobile_v2.0_cls_infer"
+
+# Initialize PaddleOCR once at startup (models already baked in image)
 ocr_engine = None
 
 
 @app.on_event("startup")
 async def startup():
     global ocr_engine
-    logger.info("Initializing PaddleOCR...")
+    logger.info("Initializing PaddleOCR with pre-downloaded models...")
+    logger.info(f"  det: {_DET_MODEL_DIR}")
+    logger.info(f"  rec: {_REC_MODEL_DIR}")
+    logger.info(f"  cls: {_CLS_MODEL_DIR}")
     # lang='en' works perfectly for French/European Latin text
     # lang='fr' can segfault on some server configs (AVX issues)
     ocr_engine = PaddleOCR(
@@ -57,8 +68,11 @@ async def startup():
         use_gpu=False,
         show_log=False,
         enable_mkldnn=False,  # more stable on CPU-only servers
+        det_model_dir=_DET_MODEL_DIR,
+        rec_model_dir=_REC_MODEL_DIR,
+        cls_model_dir=_CLS_MODEL_DIR,
     )
-    logger.info("PaddleOCR ready")
+    logger.info("✅ PaddleOCR ready (no runtime downloads)")
 
 
 class OcrRequest(BaseModel):
@@ -78,7 +92,20 @@ class OcrResponse(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "engine": "paddleocr", "ready": ocr_engine is not None}
+    models_present = all(
+        os.path.isdir(p) for p in [_DET_MODEL_DIR, _REC_MODEL_DIR, _CLS_MODEL_DIR]
+    )
+    return {
+        "status": "ok",
+        "engine": "paddleocr",
+        "ready": ocr_engine is not None,
+        "models_baked": models_present,
+        "model_paths": {
+            "det": _DET_MODEL_DIR,
+            "rec": _REC_MODEL_DIR,
+            "cls": _CLS_MODEL_DIR,
+        },
+    }
 
 
 @app.post("/process-base64", response_model=OcrResponse)
