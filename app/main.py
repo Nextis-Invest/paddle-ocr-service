@@ -44,9 +44,10 @@ def verify_api_key(key: Optional[str] = Security(api_key_header)) -> str:
 # Model paths — baked into the Docker image at build time
 # Dockerfile downloads to /app/.paddleocr/; we pass explicit paths so
 # PaddleOCR doesn't try to re-download from the internet at runtime.
+# French models: multilingual det + french_PP-OCRv3_rec (handles é, è, ê, à, ç, î, ô, û…)
 _PADDLE_HOME = "/app/.paddleocr/whl"
-_DET_MODEL_DIR = f"{_PADDLE_HOME}/det/en/en_PP-OCRv3_det_infer"
-_REC_MODEL_DIR = f"{_PADDLE_HOME}/rec/en/en_PP-OCRv4_rec_infer"
+_DET_MODEL_DIR = f"{_PADDLE_HOME}/det/multilingual/Multilingual_PP-OCRv3_det_infer"
+_REC_MODEL_DIR = f"{_PADDLE_HOME}/rec/fr/french_PP-OCRv3_rec_infer"
 _CLS_MODEL_DIR = f"{_PADDLE_HOME}/cls/ch_ppocr_mobile_v2.0_cls_infer"
 
 # Initialize PaddleOCR once at startup (models already baked in image)
@@ -60,11 +61,9 @@ async def startup():
     logger.info(f"  det: {_DET_MODEL_DIR}")
     logger.info(f"  rec: {_REC_MODEL_DIR}")
     logger.info(f"  cls: {_CLS_MODEL_DIR}")
-    # lang='en' works perfectly for French/European Latin text
-    # lang='fr' can segfault on some server configs (AVX issues)
     ocr_engine = PaddleOCR(
         use_angle_cls=True,
-        lang="en",
+        lang="fr",
         use_gpu=False,
         show_log=False,
         enable_mkldnn=False,  # more stable on CPU-only servers
