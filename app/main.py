@@ -44,10 +44,12 @@ def verify_api_key(key: Optional[str] = Security(api_key_header)) -> str:
 # Model paths — baked into the Docker image at build time
 # Dockerfile downloads to /app/.paddleocr/; we pass explicit paths so
 # PaddleOCR doesn't try to re-download from the internet at runtime.
-# French models: multilingual det + french_PP-OCRv3_rec (handles é, è, ê, à, ç, î, ô, û…)
+# Latin multilingual models — correct choice for French documents
+# PaddleOCR has no dedicated 'french' rec model; 'latin' covers all Latin-script
+# languages including French (é, è, ê, à, ç, î, ô, û…) and is verified to exist.
 _PADDLE_HOME = "/app/.paddleocr/whl"
 _DET_MODEL_DIR = f"{_PADDLE_HOME}/det/multilingual/Multilingual_PP-OCRv3_det_infer"
-_REC_MODEL_DIR = f"{_PADDLE_HOME}/rec/fr/french_PP-OCRv3_rec_infer"
+_REC_MODEL_DIR = f"{_PADDLE_HOME}/rec/latin/latin_PP-OCRv3_rec_infer"
 _CLS_MODEL_DIR = f"{_PADDLE_HOME}/cls/ch_ppocr_mobile_v2.0_cls_infer"
 
 # Initialize PaddleOCR once at startup (models already baked in image)
@@ -63,7 +65,7 @@ async def startup():
     logger.info(f"  cls: {_CLS_MODEL_DIR}")
     ocr_engine = PaddleOCR(
         use_angle_cls=True,
-        lang="fr",
+        lang="latin",  # 'latin' = correct model for French; PaddleOCR has no 'french' model
         use_gpu=False,
         show_log=False,
         enable_mkldnn=False,  # more stable on CPU-only servers

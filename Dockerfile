@@ -21,14 +21,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Models are extracted into the exact paths PaddleOCR expects at runtime
 ENV PADDLEOCR_HOME=/app/.paddleocr
 
-RUN mkdir -p /app/.paddleocr/whl/det/multilingual /app/.paddleocr/whl/rec/fr /app/.paddleocr/whl/cls && \
-    # Detection model — multilingual (used by lang='fr', covers Latin scripts perfectly)
+RUN mkdir -p /app/.paddleocr/whl/det/multilingual /app/.paddleocr/whl/rec/latin /app/.paddleocr/whl/cls && \
+    # Detection model — multilingual PP-OCRv3 (language-agnostic detector)
     wget -q -O /tmp/det.tar "https://paddleocr.bj.bcebos.com/PP-OCRv3/multilingual/Multilingual_PP-OCRv3_det_infer.tar" && \
     tar -xf /tmp/det.tar -C /app/.paddleocr/whl/det/multilingual/ && \
     rm /tmp/det.tar && \
-    # Recognition model — French PP-OCRv3 (optimised for accented Latin: é, è, ê, à, ç, î, ô, û…)
-    wget -q -O /tmp/rec.tar "https://paddleocr.bj.bcebos.com/PP-OCRv3/multilingual/french_PP-OCRv3_rec_infer.tar" && \
-    tar -xf /tmp/rec.tar -C /app/.paddleocr/whl/rec/fr/ && \
+    # Recognition model — Latin PP-OCRv3 (covers all Latin-script languages incl. French: é è ê à ç î ô û…)
+    # Note: PaddleOCR has no dedicated 'french' rec model; 'latin' is the correct model for French documents
+    wget -q -O /tmp/rec.tar "https://paddleocr.bj.bcebos.com/PP-OCRv3/multilingual/latin_PP-OCRv3_rec_infer.tar" && \
+    tar -xf /tmp/rec.tar -C /app/.paddleocr/whl/rec/latin/ && \
     rm /tmp/rec.tar && \
     # Angle classification model (language-agnostic)
     wget -q -O /tmp/cls.tar "https://paddleocr.bj.bcebos.com/dygraph_v2.0/ch/ch_ppocr_mobile_v2.0_cls_infer.tar" && \
